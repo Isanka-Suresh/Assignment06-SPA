@@ -1,53 +1,77 @@
-import {loadCustomers} from "../controller/OrderController.js";
-import {loadItems} from "../controller/OrderController.js";
+$('#customer').css('display','none');
+$('#item').css('display','none');
+$('#order').css('display','none');
+$('#place_order').css('display','none');
+$('#order-details').css('display','none');
 
-console.log("hello")
+$('#navigation-bar>li').eq(0).on('click', () => {
+    $('#home').css('display','block');
+    $('#customer').css('display','none');
+    $('#item').css('display','none');
+    $('#order').css('display','none');
+    $('#place_order').css('display','none');
+    $('#order-details').css('display','none');
+})
 
-let home = $(" body > div:nth-child(2) ");
-let customers = $(" body > div:nth-child(3) ");
-let items = $(" body > div:nth-child(4) ");
-let orders = $(" body > div:nth-child(5) ");
+$('#navigation-bar>li').eq(1).on('click', () => {
+    $('#customer').css('display','block');
+    $('#home').css('display','none');
+    $('#item').css('display','none');
+    $('#order').css('display','none');
+    $('#place_order').css('display','none');
+    $('#order-details').css('display','none');
+})
+$('#link-customers').on('click', () => {
+    $('#customer').css('display','block');
+    $('#home').css('display','none');
+    $('#item').css('display','none');
+    $('#order').css('display','none');
+    $('#place_order').css('display','none');
+    $('#order-details').css('display','none');
+})
 
-const clear = function (){
-    home.css("display" , "none")
-    customers.css("display" , "none")
-    items.css("display" , "none")
-    orders.css("display" , "none")
-}
+$('#navigation-bar>li').eq(2).on('click', () => {
+    $('#item').css('display','block');
+    $('#home').css('display','none');
+    $('#customer').css('display','none');
+    $('#order').css('display','none');
+    $('#place_order').css('display','none');
+    $('#order-details').css('display','none');
+})
 
-$("#home_page").on('click' , () => {
-    clear();
-    home.css("display" , "flex");
-
-});
-
-$("#customers_page").on('click' , () => {
-    clear();
-    customers.css("display" , "block");
-
-});
-
-$("#items_page").on('click' , () => {
-    clear();
-    items.css("display" , "block");
-
-});
-
-$("#orders_page").on('click' , () => {
-    clear();
-    orders.css("display" , "block");
-    loadCustomers();
-    loadItems();
-
-});
-
-$("#logo").on('click' , () => {
-    clear();
-    home.css("display" , "block");
-
-});
-
-$("#home_page").click();
-
+$('#link-items').on('click', () => {
+    $('#item').css('display','block');
+    $('#home').css('display','none');
+    $('#customer').css('display','none');
+    $('#order').css('display','none');
+    $('#place_order').css('display','none');
+    $('#order-details').css('display','none');
+})
 
 
+$('#link-orders').on('click', () => {
+    $('#place_order').css('display','block');
+    $('#home').css('display','none');
+    $('#order').css('display','none');
+    $('#item').css('display','none');
+    $('#customer').css('display','none');
+    $('#order-details').css('display','none');
+})
+
+$('#navigation-bar>li').eq(3).on('click', () => {
+    $('#place_order').css('display','block');
+    $('#home').css('display','none');
+    $('#order').css('display','none');
+    $('#item').css('display','none');
+    $('#customer').css('display','none');
+    $('#order-details').css('display','none');
+})
+
+$('#navigation-bar>li').eq(4).on('click', () => {
+    $('#order-details').css('display','block');
+    $('#place_order').css('display','none');
+    $('#home').css('display','none');
+    $('#order').css('display','none');
+    $('#item').css('display','none');
+    $('#customer').css('display','none');
+})

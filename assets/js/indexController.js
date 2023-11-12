@@ -1,3 +1,4 @@
+
 $("#customer_sect").css('display','none');
 $("#items_sect").css('display','none');
 $("#orders_sect").css('display','none');

@@ -1,270 +1,419 @@
-import {items} from "../db/DB.js";
-import {customers} from "../db/DB.js";
-import {orders} from "../db/DB.js";
+import {customer_db, item_db, order_db} from "../db/db.js";
 import {OrderModel} from "../model/OrderModel.js";
-import {CustomerModel} from "../model/CustomerModel.js";
-import {ItemModel} from "../model/ItemModel.js";
+import {OrderDetailsModel} from "../model/OrderDetailsModel.js";
 
-// let rowIndex = -1;
-let customer = null;
-let item = null;
-let total = 0;
-let subTotal = 0;
-let orderItems = [];
+$('#order-update-button').css('display','none');
+$('#order-delete-button').css('display','none');
+$('#desc').prop('disabled', true);
+$('#placeOrderQtyOnHand').prop('disabled', true);
+$('#place_order_unit_price').prop('disabled', true);
+$('#place_order_customer_name').prop('disabled', true);
+$('#Balance').prop('disabled', true);
 
+const orderIdPattern = /^OID-0{0,3}[1-9]\d{0,3}$/;
+const digitRegex = /^\d+$/;
 
-// set fields uneditable
-function fieldsLock() {
-    $("#c_name").attr("readonly", true);
-    $("#c_address").attr("readonly", true);
-    $("#c_salary").attr("readonly", true);
+var orderDetailsArr =[];
 
-    $("#i_name").attr("readonly", true);
-    $("#i_price").attr("readonly", true);
-    $("#i_qty_on_hand").attr("readonly", true);
-
-    $("#o_id").attr("readonly", true);
-    $("#date").attr("readonly", true);
-
-    $("#balance").attr("readonly", true);
-
-}
-
-// set current date
-function currentDate() {
-    let currentDate = new Date();
-    var dd = String(currentDate.getDate()).padStart(2, '0');
-    var mm = String(currentDate.getMonth() + 1).padStart(2, '0'); //January is 0!
-    var yyyy = currentDate.getFullYear();
-
-    currentDate = yyyy + '-' + mm + '-' + dd;
-
-    $("#date").val(currentDate);
-
-}
-
-// generate oder ID
-function generateOId() {
-    if (orders.length === 0) {
-        $("#o_id").val("O001");
-        return;
-    }
-    let lastId = orders[orders.length - 1].id;
-    lastId = lastId.substring(1);
-
-    let newId = Number.parseInt(lastId) + 1 + "";
-    newId = newId.padStart(3, "0");
-
-    $("#o_id").val("O" + newId);
-
-
-}
-
-// load order's items
-const loadOrderItems = () => {
-    $("#o_table>tbody").empty();
-
-    orderItems.map((item) => {
-        $("#o_table>tbody").append(
-            `<tr>
-                <td>${item.code}</td>
-                <td>${item.name}</td>
-                <td>${item.price}</td>
-                <td>${item.qty}</td>
-                <td>
-                    <div class="container">
-                        <div style="justify-content: center" class="row">
-                            <button type="button"
-                                class="col col-12 col-sm12 col-md-8 col-lg-8 col-xl-4 col-xxl-4 btn btn-danger remove-t-btn"
-                                data-index = ${item.code}
-                                >
-                                    Remove
-                            </button>
-                        </div>
-                     </div>
-                </td>
-            </tr>`
-        );
-    });
-};
-
-// load customers
-const loadCustomers = () => {
-    $("#customer").empty();
-    $("#customer").append(`<option value="" hidden selected>Select Customer</option>`);
-    customers.map((customer) => {
-        $("#customer").append(`<option value="${customer.id}">${customer.id}</option>`);
-    });
-
-    customer = null;
-    $("#c_name").val("");
-    $("#c_address").val("");
-    $("#c_salary").val("");
-
-};
-
-// load items
-const loadItems = () => {
-    $("#item").empty();
-    $("#item").append(`<option value="" hidden selected>Select Item</option>`);
-    items.map((item) => {
-        $("#item").append(`<option value="${item.code}">${item.code}</option>`);
-    });
-
-    item = null;
-    $("#i_name").val("");
-    $("#i_price").val("");
-    $("#i_qty_on_hand").val("");
-
-};
-
-$("#customer").on('change', function () {
-    let customerId = $(this).val();
-    customer = customers.find(customer => customer.id === customerId);
-    $("#c_name").val(customer.name);
-    $("#c_address").val(customer.address);
-    $("#c_salary").val(customer.salary);
-
+$('#link-orders').on('click', () => {
+    placeOrderClicked();
 });
 
-$("#item").on('change', function () {
-    loadItem();
+
+
+$('#navigation-bar>li').eq(3).on('click', () => {
+    placeOrderClicked();
+});
+$('#order-place-order-button').on('click', () => {
+
+    if (orderValidations()) {
+
+        let orderId = $('#order_Id').val();
+        let orderDate = $('#orderDate').val();
+        let customerId = $('#customerIdSelect').val();
+        let netTotal = $('#net-total').text();
+        let subTotal = $('#sub-total').text();
+        let discount = $('#discount').val();
+        let cash = $('#cash').val();
+
+
+        let order_obj = new OrderModel(orderId, orderDate, customerId, orderDetailsArr, netTotal, subTotal, discount, cash);
+        order_db.push(order_obj);
+
+        for (const items of orderDetailsArr) {
+            let index = item_db.findIndex(item => item.item_id === items.itemId);
+            let item = item_db[index];
+            let quantity  = parseInt(item.qty);
+            quantity -= parseInt(items.quantity);
+            item.qty = quantity;
+
+        }
+
+        orderDetailsClear();
+    }
 });
 
-function loadItem() {
-    let itemCode = $("#item").val();
-    item = items.find(item => item.code === itemCode);
-    $("#i_name").val(item.name);
-    $("#i_price").val(item.price);
-    $("#i_qty_on_hand").val(item.qty);
-    $("#i_qty").val("");
+$('#add-cart-button').on('click', () => {
+    let itemId = $('#itemIdSelect').val();
+    let itemQuantity = $('#place_order_qty').val();
+    let unitPrice = $('#place_order_unit_price').val();
+    let description = $('#desc').val();
 
-}
+    if (itemValidations()) {
 
-$("#o-add-item-btn").on("click", () => {
-    let qty = Number.parseInt($("#i_qty").val());
+        for (const orderDetailsArrElement of orderDetailsArr) {
+            if (orderDetailsArrElement.itemId === itemId) {
+                let quantity = parseInt(orderDetailsArrElement.quantity);
+                quantity += parseInt(itemQuantity);
+                orderDetailsArrElement.quantity = quantity;
 
-    if ((item.qty - qty) < 0) {
-        alert("insufficient space");
-        return;
+                $('#cart-table').empty();
+
+                for (const orderDetailsArrElement of orderDetailsArr) {
+                    let record = `<tr><td class="item_id">${orderDetailsArrElement.itemId}</td><td class="Description">${orderDetailsArrElement.description}</td><td class="unit_price">${orderDetailsArrElement.unitPrice}</td><td class="Qty">${orderDetailsArrElement.quantity}</td></tr>`;
+                    $("#cart-table").append(record);
+                }
+                let total = 0;
+
+                for (const orderDetailsArrElement of orderDetailsArr) {
+                    total += (orderDetailsArrElement.unitPrice * orderDetailsArrElement.quantity)
+                }
+                $('#net-total').text(total.toFixed(2));
+                $('#sub-total').text(calculateDiscountedPrice(total, $('#discount').val()).toFixed(2));
+                itemClear();
+                return;
+            }
+        }
+
+        let order_obj = new OrderDetailsModel(itemId, itemQuantity, unitPrice, description);
+
+        orderDetailsArr.push(order_obj);
+
+        $('#cart-table').empty();
+
+        for (const orderDetailsArrElement of orderDetailsArr) {
+            let record = `<tr><td class="item_id">${orderDetailsArrElement.itemId}</td><td class="Description">${orderDetailsArrElement.description}</td><td class="unit_price">${orderDetailsArrElement.unitPrice}</td><td class="Qty">${orderDetailsArrElement.quantity}</td></tr>`;
+            $("#cart-table").append(record);
+        }
+
+        let total = 0;
+
+        for (const orderDetailsArrElement of orderDetailsArr) {
+            total += (orderDetailsArrElement.unitPrice * orderDetailsArrElement.quantity)
+        }
+        $('#net-total').text(total.toFixed(2));
+        $('#sub-total').text(calculateDiscountedPrice(total, $('#discount').val()).toFixed(2));
+        itemClear();
     }
+});
 
-    item.qty = item.qty - qty;
+$('#itemIdSelect').on('change', () => {
+    let itemId = $('#itemIdSelect').val();
+    let index = item_db.findIndex(item => item.item_id === itemId);
+    $("#placeOrderQtyOnHand").val(item_db[index].qty);
+    $("#desc").val(item_db[index].description);
+    $("#place_order_unit_price").val(item_db[index].unit_price);
+});
 
-    let orderItem = findOrderItem(item.code);
-
-    if (orderItem != null) {
-        orderItem.qty = Number.parseInt(orderItem.qty) + qty;
-
+$('#customerIdSelect').on('change', () => {
+    let customerId = $('#customerIdSelect').val();
+    let index = customer_db.findIndex(item => item.customer_id === customerId);
+    $("#place_order_customer_name").val(customer_db[index].full_name);
+});
+const genNextOrderId = () => {
+    if (order_db.length === 0) {
+        return "OID-0001";
     } else {
-        let tempItem = new ItemModel(item.code, item.name, item.price, qty);
-        orderItems.push(tempItem);
+        // Find the last order ID in the array
+        const lastOrderId = order_db[order_db.length - 1].orderId;
 
+        // Extract the numeric part and increment it
+        const lastOrderNumber = parseInt(lastOrderId.split('-')[1]);
+        let nextOrderNumber = lastOrderNumber + 1;
+        nextOrderNumber = nextOrderNumber.toString();
+
+
+        if (nextOrderNumber.toString().length === 1){
+            return `OID-000${nextOrderNumber.toString()}`;
+        } else if(nextOrderNumber.toString().length === 2) {
+            return`OID-00${nextOrderNumber.toString()}`;
+        } else if(nextOrderNumber.toString().length === 3){
+            return`OID-0${nextOrderNumber.toString()}`;
+        }else {
+            return`OID-${nextOrderNumber.toString()}`;
+        }
     }
-
-    loadItem();
-    loadOrderItems();
-    calcTotal();
-    calcBalance();
-});
-
-function findOrderItem(code) {
-    return orderItems.find(item => item.code === code);
 
 }
 
-function calcTotal() {
-    total = 0;
-    orderItems.map(orderItem => {
-        total += (orderItem.qty * orderItem.price);
+function placeOrderClicked() {
+    orderDetailsClear();
+    $('#order_Id').val(genNextOrderId());
+
+    let currentDate = new Date();
+    let formattedDate = currentDate.toISOString().split('T')[0];
+    $('#orderDate').val(formattedDate);
+
+    $('#customerIdSelect').empty();
+    customer_db.map((item, index) => {
+        let record = `<option>${item.customer_id}</option>`;
+        $("#customerIdSelect").append(record);
     });
-
-    $("#total").text("Total : " + total + "/=");
-    calcDiscount(total);
-    console.log(total);
-
+    $("#customerIdSelect").append(`<option selected>select the customer</option>`);
+    $('#itemIdSelect').empty();
+    item_db.map((item, index) => {
+        let record = `<option>${item.item_id}</option>`;
+        $("#itemIdSelect").append(record);
+    });
+    $("#itemIdSelect").append(`<option selected>select the Item</option>`);
+}
+function calculateDiscountedPrice(originalPrice, discountPercentage) {
+    if (discountPercentage === null || discountPercentage === 0)return originalPrice;
+    const discountAmount = (originalPrice * discountPercentage) / 100;
+    return originalPrice - discountAmount;
 }
 
-function calcDiscount(total) {
-    let discount = $("#discount").val();
-    subTotal = total;
-    if (discount != null) {
-        subTotal -= ((subTotal * discount) / 100.0);
+$('#discount').on('input', () => {
+    $('#sub-total').text(calculateDiscountedPrice($('#net-total').text(), $('#discount').val()).toFixed(2));
+});
+
+function itemClear() {
+    $('#itemIdSelect').val("select the Item");
+    $('#place_order_qty').val("");
+    $('#place_order_unit_price').val("");
+    $('#desc').val("");
+    $('#placeOrderQtyOnHand').val("");
+}
+
+$('#cash').on('input', () => {
+    $('#Balance').text(calculateBalance());
+});
+
+function calculateBalance() {
+    let subtotal = parseInt($('#sub-total').text());
+    let cash = $('#cash').val();
+    if (subtotal >= cash){
+        return 0;
+    }else {
+        return cash - subtotal;
+    }
+}
+$('#order_Id').on('keypress', (event) => {
+    let orderId = $('#order_Id').val();
+    if (event.key === 'Enter') {
+
+        let index = order_db.findIndex(item => item.orderId === orderId);
+
+        let order_obj = order_db[index];
+
+        if (order_obj != null) {
+            $('#customerIdSelect').val(order_obj.customerId);
+
+            let index = customer_db.findIndex(item => item.customer_id === order_obj.customerId);
+            $("#place_order_customer_name").val(customer_db[index].full_name);
+
+            for (const orderDetailsArrElement of order_obj.orderDetailsArr) {
+                let record = `<tr><td class="item_id">${orderDetailsArrElement.itemId}</td><td class="Description">${orderDetailsArrElement.description}</td><td class="unit_price">${orderDetailsArrElement.unitPrice}</td><td class="Qty">${orderDetailsArrElement.quantity}</td></tr>`;
+                $("#cart-table").append(record);
+            }
+
+            $('#net-total').text(order_obj.netTotal);
+            $('#sub-total').text(order_obj.subTotal);
+            $('#discount').val(order_obj.discount);
+            $('#cash').val(order_obj.cash);
+
+            $('#Balance').text(calculateBalance());
+
+            $('#order-update-button').css('display', 'block');
+            $('#order-delete-button').css('display', 'block');
+            $('#order-place-order-button').css('display', 'none');
+        }
+
+    }else {
+        $('#order-update-button').css('display','none');
+        $('#order-delete-button').css('display','none');
+        $('#order-place-order-button').css('display','block');
     }
 
-    $("#sub-total").text("Sub Total : " + subTotal + "/=");
+});
+
+function orderDetailsClear() {
+    $('#order_Id').val(genNextOrderId());
+    $('#customerIdSelect').val("select the customer");
+    $('#place_order_customer_name').val("");
+    $('#net-total').text("0");
+    $('#sub-total').text("0");
+    $('#discount').val("");
+    $('#cash').val("");
+    $('#Balance').text("0");
+    $('#cart-table').empty();
+    orderDetailsArr = [];
+    itemClear();
+    $('#order-update-button').css('display','none');
+    $('#order-delete-button').css('display','none');
+    $('#order-place-order-button').css('display','block');
+}
+
+$('#cart-table').on("click", "tr", function() {
+    let item_id = $(this).find(".item_id").text();
+    let description = $(this).find(".Description").text();
+    let unit_price = $(this).find(".unit_price").text();
+    let qty = $(this).find(".Qty").text();
+
+    $('#itemIdSelect').val(item_id);
+    $('#desc').val(description);
+    let index = item_db.findIndex(item => item.item_id === item_id);
+    $("#placeOrderQtyOnHand").val(item_db[index].qty);
+    $('#place_order_unit_price').val(unit_price);
+    $('#place_order_qty').val(qty);
+});
+
+$('#order-update-button').on('click', () => {
+    if  (orderValidations()) {
+        let orderId = $('#order_Id').val();
+        let orderDate = $('#orderDate').val();
+        let customerId = $('#customerIdSelect').val();
+        let netTotal = $('#net-total').text();
+        let subTotal = $('#sub-total').text();
+        let discount = $('#discount').val();
+        let cash = $('#cash').val();
+
+        let order_obj = new OrderModel(orderId, orderDate, customerId, orderDetailsArr, netTotal, subTotal, discount, cash);
+        let index = order_db.findIndex(item => item.orderId === orderId);
+
+        order_db[index] = order_obj;
+
+        orderDetailsClear();
+    }
+});
+
+$('#order-delete-button').on('click', () => {
+    let orderId = $('#order_Id').val();
+
+    let index = order_db.findIndex(item => item.orderId === orderId);
+
+    order_db.splice(index, 1);
+
+    orderDetailsClear();
+});
+
+function itemValidations() {
+    let item_id = $('#itemIdSelect').val();
+    let itemQuantity = $('#place_order_qty').val();
+    let itemQuantityOnHand = $('#placeOrderQtyOnHand').val();
+
+    if (item_id !== "select the Item"){
+        if (itemQuantity){
+            if (itemQuantity <= itemQuantityOnHand){
+                return true;
+            }else {
+                Swal.fire({
+                    icon: 'error',
+                    text: 'not have enough quantity !',
+                })
+                return false;
+            }
+        }else {
+            Swal.fire({
+                icon: 'error',
+                text: 'Item QTY is Empty!',
+            })
+            return false;
+        }
+    }else {
+        Swal.fire({
+            icon: 'error',
+            text: 'Please Select Item!',
+        })
+        return false;
+    }
 
 }
 
-function calcBalance() {
-    let cash = $("#cash").val();
-    $("#balance").val(cash - subTotal);
+function orderValidations() {
+    let orderId = $('#order_Id').val();
+    let customerId = $('#customerIdSelect').val();
+    let cash = $('#cash').val();
+
+    if (orderId && orderIdPattern.test(orderId)) {
+        if (customerId !== "select the customer") {
+            if (orderDetailsArr.length !== 0) {
+                if (cash && digitRegex.test(cash)) {
+                    return true;
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        text: 'Cash is empty or Invalid !',
+                    })
+                    return false;
+                }
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    text: 'Cart is Empty !',
+                })
+                return false;
+            }
+        } else {
+            Swal.fire({
+                icon: 'error',
+                text: 'Please Select Customer!',
+            })
+            return false;
+        }
+    }else {
+        Swal.fire({
+            icon: 'error',
+            text: 'Customer Id is empty or Invalid !',
+        })
+        return false;
+    }
 }
+$('#order_Id').on("keyup", () => {
+    const orderId = $('#order_Id').val();
 
-$("#discount").on("input", () => {
-    calcDiscount(total);
-    calcBalance();
+    const isMatch = orderIdPattern.test(orderId);
 
-});
-
-$("#cash").on("input", function () {
-    calcBalance();
-});
-
-// set remove btn action
-$("#o_table").on("click", "button", function () {
-    let itemCodeRBtn = $(this).attr("data-index");
-    let itemOnOrder = orderItems.find(item => item.code == itemCodeRBtn);
-    let itemOnDB = items.find(item => item.code == itemCodeRBtn);
-
-    itemOnDB.qty += itemOnOrder.qty;
-
-    orderItems.splice(item => item.code == itemCodeRBtn, 1);
-
-    calcTotal();
-    loadItem();
-    loadOrderItems();
-    calcBalance();
+    if (!isMatch) {
+        $('#order_Id').addClass('is-invalid');
+    } else {
+        $('#order_Id').removeClass('is-invalid');
+    }
 
 });
+$('#place_order_qty').on("keyup", () => {
+    const qty = $('#place_order_qty').val();
 
-// do purchase
-$("#purchase_btn").on("click", () => {
-    let order = new OrderModel(
-        $("#o_id").val() ,
-        $("#date").val() ,
-        total ,
-        subTotal ,
-        $("#discount").val(),
-        new CustomerModel(customer.code, customer.name , customer.address , customer.salary),
-        orderItems
-    );
+    const isMatch = digitRegex.test(qty);
 
-    orders.push(order);
+    if (!isMatch) {
+        $('#place_order_qty').addClass('is-invalid');
+    } else {
+        $('#place_order_qty').removeClass('is-invalid');
+    }
 
-    orderItems = [];
-    $("#orders_page").click();
-    loadOrderItems();
 });
+$('#discount').on("keyup", () => {
+    const discount = $('#discount').val();
 
-export function init() {
-    fieldsLock();
-    currentDate();
-    generateOId();
-    loadItems();
-    loadCustomers();
+    const isMatch = digitRegex.test(discount);
 
-    $("#total").text("Total : 0/=");
-    $("#sub-total").text("Sub Total : 0/=");
-    $("#cash").val("");
-    total = 0;
-    subTotal = 0;
-    calcBalance();
-}
+    if (!isMatch) {
+        $('#discount').addClass('is-invalid');
+    } else {
+        $('#discount').removeClass('is-invalid');
+    }
 
+});
+$('#cash').on("keyup", () => {
+    const cash = $('#cash').val();
 
+    const isMatch = digitRegex.test(cash);
 
+    if (!isMatch) {
+        $('#cash').addClass('is-invalid');
+    } else {
+        $('#cash').removeClass('is-invalid');
+    }
 
-
-
-
+});
